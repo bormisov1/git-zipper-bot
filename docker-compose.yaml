@@ -1,0 +1,19 @@
+services:
+  git-zipper-bot:
+    build: .
+
+  db:
+    image: postgres:14-alpine
+    container_name: postgres_container
+    restart: always
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: admin
+      POSTGRES_DB: test
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+volumes:
+  pgdata:
