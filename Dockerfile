@@ -26,4 +26,4 @@ COPY src .
 
 RUN npm build
 
-CMD [ "npm", "run", "serve" ]
+CMD [ "npm", "run", "start" ]
