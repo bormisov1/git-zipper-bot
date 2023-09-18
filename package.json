@@ -3,6 +3,7 @@
   "scripts": {
     "serve": "export $(cat .env | xargs) && ts-node-dev index.ts",
     "build": "npm run lint && tsc -p . && cp .env ./build/.env",
+    "start": "export $(cat .env | xargs) && node build/index.js",
     "lint": "eslint src/**/*.ts"
   },
   "dependencies": {
