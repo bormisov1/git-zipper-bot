@@ -1,3 +1,6 @@
+import 'reflect-metadata';
+import {PassThrough} from 'stream';
+
 import {Telegraf} from 'telegraf';
 
 import {Bot, TgRequestHandler} from './core/interface';
@@ -23,7 +26,9 @@ export async function BotService(): Promise<Bot> {
 
   return {
     onRequest,
-    sendFileToChatByUrl,
+    // sendFileToChatByUrl,
+    getWritableChatDocument,
+    sendMessageToChat,
   };
 }
 
@@ -31,11 +36,32 @@ function onRequest(handler: TgRequestHandler): void {
   tgRequestHandler = handler;
 }
 
-async function sendFileToChatByUrl(
+// async function sendFileToChatByUrl(
+//   chatId: number,
+//   url: string,
+//   message: string
+// ): Promise<void> {
+//   await bot.telegram.sendDocument(chatId, {filename: 'master.zip', url});
+//   await bot.telegram.sendMessage(chatId, message);
+// }
+
+async function getWritableChatDocument(
   chatId: number,
-  url: string,
+  filename: string
+): Promise<PassThrough> {
+  const chatDocumentWritable = new PassThrough();
+  console.log(
+    await bot.telegram.sendDocument(chatId, {
+      source: chatDocumentWritable,
+      filename,
+    })
+  );
+  return chatDocumentWritable;
+}
+
+async function sendMessageToChat(
+  chatId: number,
   message: string
 ): Promise<void> {
-  await bot.telegram.sendDocument(chatId, {filename: 'master.zip', url});
   await bot.telegram.sendMessage(chatId, message);
 }

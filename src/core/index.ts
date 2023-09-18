@@ -3,41 +3,88 @@ import stream from 'node:stream';
 import {PassThrough} from 'stream';
 
 import fetch from 'node-fetch';
+import {MoreThan} from 'typeorm';
 
-import {Bot, DB, GitId, TgRequest} from './interface';
+import {Bot, DB, TgRequest} from './interface';
 
-export function GitZipperService(db: DB, bot: Bot): void {
-  bot.onRequest(async ({chatId, gitId}: TgRequest): Promise<void> => {
-    try {
-      const zipLoadDate = await db.insertAndFindTgRequest({chatId, gitId});
-      const fsWriteStream = fs.createWriteStream('zip.zip');
-      const zipTunnel = new PassThrough();
-      zipTunnel.pipe(fsWriteStream);
-      streamZippedGitToWritable(gitId, zipTunnel);
-      bot.sendFileToChatByUrl(
-        chatId,
-        gitIdToUrl(gitId),
-        zipLoadDate.toLocaleString()
-      );
-    } catch (e) {
-      console.log(e);
-    }
-  });
+let db: DB, bot: Bot;
+
+export function GitZipperService(services: {db: DB; bot: Bot}): void {
+  bot = services.bot || bot;
+  db = services.db || db;
+  bot.onRequest(handleTgRequest);
 }
 
-const gitIdToUrl = ({login, project}: GitId): string =>
-  `https://github.com/${login}/${project}/zipball/master`;
+const handleTgRequest = async ({chatId, gitId}: TgRequest): Promise<void> => {
+  try {
+    // now (in ms) - 7 days * 24 hours * ...
+    // const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+    // const weekFreshTgRequest = await db.findTgRequest({
+    //   login: gitId.login,
+    //   project: gitId.project,
+    //   isFresh: true,
+    //   createdAt: MoreThan(new Date(weekAgo)),
+    // });
+    // const insertDate = await db.insertTgRequest({
+    //   ...gitId,
+    //   telegramId: chatId,
+    //   isFresh: !weekFreshTgRequest,
+    // });
+    // const gotCached = weekFreshTgRequest !== null;
+    const gotCached = false;
+    // const zipLoadDate = gotCached ? weekFreshTgRequest.createdAt : insertDate;
+    const zipLoadDate = new Date();
+    const zipLoadDateFormatted = zipLoadDate
+      .toLocaleDateString()
+      .replaceAll('/', '-');
+    const zipFilePath = `${gitId.login}-${gitId.project}-${zipLoadDateFormatted}.zip`;
+    const zipInTunnel = new PassThrough();
+    if (!gotCached) {
+      zipInTunnel.pipe(fs.createWriteStream(zipFilePath));
+    }
+    streamZippedGitToWritable(
+      zipInTunnel,
+      zipFilePath,
+      gotCached,
+      `https://github.com/${gitId.login}/${gitId.project}/zipball/master`
+    );
+    const chatDocument = await bot.getWritableChatDocument(chatId, zipFilePath);
+    zipInTunnel.pipe(chatDocument);
+    await bot.sendMessageToChat(chatId, zipFilePath);
+  } catch (e) {
+    console.log(e);
+  }
+};
 
 const streamZippedGitToWritable = async (
-  gitId: GitId,
-  targetStream: stream.Writable
-): Promise<void[]> => {
-  const response = await fetch(gitIdToUrl(gitId));
+  targetStream: stream.Writable,
+  zipFilePath: string,
+  gotCached: boolean,
+  zipDownloadUrl?: string
+): Promise<void> => {
+  console.log({
+    zipDownloadUrl,
+    zipFilePath,
+    gotCached,
+  });
+  let zipStream: NodeJS.ReadableStream;
+  if (gotCached) {
+    zipStream = fs.createReadStream(zipFilePath);
+  } else if (zipDownloadUrl) {
+    zipStream = (await fetch(zipDownloadUrl)).body;
+  } else {
+    throw new Error(
+      'Got no cached zip locally and no zip download url is passed'
+    );
+  }
   return new Promise((resolve, reject) => {
-    response.body.on('data', chunk => {
+    zipStream.on('data', chunk => {
       targetStream.write(chunk);
     });
-    response.body.on('error', reject);
-    targetStream.on('finish', resolve);
+    zipStream.on('end', () => {
+      targetStream.destroy();
+      resolve();
+    });
+    zipStream.on('error', reject);
   });
 };
