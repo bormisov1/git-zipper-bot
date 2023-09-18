@@ -16,7 +16,7 @@ export class TgRequest {
   @Column({name: 'project', type: 'text'})
   project!: string;
 
-  @CreateDateColumn({name: 'create_at', type: 'timestamp'})
+  @CreateDateColumn({name: 'created_at', type: 'timestamp'})
   createdAt!: Date;
 
   @Column({name: 'telegram_id', type: 'integer'})

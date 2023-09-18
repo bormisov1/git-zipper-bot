@@ -1,30 +1,51 @@
+import {Writable} from 'stream';
+
+import {FindOptionsWhere} from 'typeorm';
+
 interface GitId {
   login: string;
   project: string;
 }
 
-export interface DB {
-  insertAndFindTgRequest(r: TgRequest): Promise<Date>;
-  // findHistoryRecords(r: TgRequest): Promise<TgRequestDTO[]>;
-  // createHistoryRecord(rec: TgRequestDTO): Promise<void>;
+interface TgRequestDTO {
+  id: number;
+  login: string;
+  project: string;
+  isFresh: boolean;
+  createdAt: Date;
+  telegramId: number;
+}
+
+interface InsertTgRequestDTO {
+  login: string;
+  project: string;
+  isFresh: boolean;
+  telegramId: number;
+}
+
+// Current DB interface
+interface DB {
+  findTgRequest(
+    where: FindOptionsWhere<TgRequestDTO>
+  ): Promise<TgRequestDTO | null>;
+  insertTgRequest(dto: InsertTgRequestDTO): Promise<Date>;
 }
 
 type TgRequest = {chatId: number; gitId: GitId};
-export type TgRequestHandler = (request: TgRequest) => void;
-export interface Bot {
+type TgRequestHandler = (request: TgRequest) => void;
+interface Bot {
   onRequest(handle: (request: TgRequest) => void): void;
-  sendFileToChatByUrl(
-    chatId: number,
-    url: string,
-    message: string
-  ): Promise<void>;
+  getWritableChatDocument(chatId: number, filename: string): Promise<Writable>;
+  sendMessageToChat(chatId: number, message: string): Promise<void>;
 }
 
-// interface TgRequestDTO {
-//   id: number;
-//   login: string;
-//   project: string;
-//   isFresh: boolean;
-//   createdAt: number;
-//   telegramId: number;
-// }
+export {
+  Bot,
+  DB,
+  GitId,
+  TgRequestDTO,
+  InsertTgRequestDTO,
+  InsertTgRequestResult,
+  TgRequest,
+  TgRequestHandler,
+};
